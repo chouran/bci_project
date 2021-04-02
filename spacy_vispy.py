@@ -66,8 +66,9 @@ class Canvas(app.Canvas):
         self.translate = 1
 
         # Rotation Camera
-        self.x_pos = 0
-        self.y_pos = 0
+        self.sensitivity = 0.1
+        self.last_x, self.last_y = 0, 0
+        self.x_offset, self.y_offset = 0, 0
         self.yaw = 0
         self.pitch = 0
         self.rot_mat_x = np.zeros((4, 4), dtype=np.float32)
@@ -135,15 +136,30 @@ class Canvas(app.Canvas):
     def on_close(self, event):
         self.timer.stop()
 
-    # Camera rotation
     def on_mouse_wheel(self, event):
+        self.translate -= event.delta[1]
+        self.program['u_view'] = self.view
+
+        self.yaw, self.pitch = 0, 0
+
+        self.rot_y(self.yaw * np.pi / 180)
+        self.rot_x(self.pitch * np.pi / 180)
+
+        self.view = np.dot(self.rot_mat_y, self.rot_mat_x)
+        self.program['u_view'] = self.view
+
+        self.update()
+
+
+    # Camera rotation
+    def on_mouse_move(self, event):
         #self.view = 1 * np.eye(4, dtype=np.float32)
         #self.model = 1 * np.eye(4, dtype=np.float32)
 
-        self.translate -= event.delta[1]
+        #self.translate -= event.delta[1]
         #self.translate = max(-1, self.translate)
         #print(event.delta[1])
-        print(self.translate)
+        #print(self.translate)
         #self.view = translate((0, 0, -self.translate))
         #self.program['u_view'] = self.view
         #self.program['u_size'] = 5 / self.translate
@@ -154,11 +170,20 @@ class Canvas(app.Canvas):
         #self.program['u_model'] = self.model
         #self.program['u_view'] = self.view
 
-        self.rot_y(self.translate * np.pi / 180)
-        self.rot_x(self.translate * np.pi / 180)
+        x, y = event.pos
+        print(x, y)
+        self.x_offset, self.y_offset = x - self.last_x, - (y - self.last_y)
+        self.last_x, self.last_y = x, y
+        self.x_offset *= self.sensitivity
+        self.y_offset *= self.sensitivity
+
+        self.yaw, self.pitch = self.yaw - self.x_offset, self.pitch + self.y_offset
+
+        self.rot_y(self.yaw * np.pi / 180)
+        self.rot_x(self.pitch * np.pi / 180)
 
         self.view = np.dot(self.rot_mat_y, self.rot_mat_x)
-        print(self.view)
+        #print(self.view)
         self.program['u_view'] = self.view
 
         self.update()
@@ -196,11 +221,11 @@ class Canvas(app.Canvas):
 
     def rot_y(self, theta):
         self.rot_mat_y[0][0] = self.rot_mat_y[2][2] = np.cos(theta)
-        self.rot_mat_y[0][2], self.rot_mat_y[2][0] = np.sin(theta), -np.sin(theta)
+        self.rot_mat_y[0][2], self.rot_mat_y[2][0] = np.sin(theta), - np.sin(theta)
 
     def rot_x(self, theta):
         self.rot_mat_x[1][1] = self.rot_mat_x[2][2] = np.cos(theta)
-        self.rot_mat_x[2][1], self.rot_mat_x[1][2] = np.sin(theta), -np.sin(theta)
+        self.rot_mat_x[2][1], self.rot_mat_x[1][2] = np.sin(theta), - np.sin(theta)
 
 
 
