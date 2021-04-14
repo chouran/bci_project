@@ -48,6 +48,21 @@ void main()
 }
 """
 
+eye_vertex = """
+attribute vec2 a_position ; 
+void main {
+vec2 pos = a_position ;
+gl_PointSize = 1000.0 ;
+gl_Position = (pos, 0, 0) ;
+}
+"""
+
+eye_fragment = """
+void main {
+gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0) ;
+}
+"""
+
 N = 10000  # Number of stars
 SIZE = 100
 SPEED = 1.0  # time in seconds to go through one block
@@ -61,6 +76,8 @@ class Canvas(app.Canvas):
                             size=(800, 600))
 
         self.program = gloo.Program(vertex, fragment)
+        self.eye_program = gloo.Program(eye_vertex, eye_fragment)
+
         self.view = 1*np.eye(4, dtype=np.float32)
         self.model = 1*np.eye(4, dtype=np.float32)
         self.translate = 1
@@ -88,6 +105,8 @@ class Canvas(app.Canvas):
         # Set attributes
         self.program['a_position'] = np.zeros((N, 3), np.float32)
         self.program['a_offset'] = np.zeros((N, 1), np.float32)
+
+        self.eye_program['a_position'] = (0, 0)
 
         # Init
         self._timeout = 0
@@ -128,6 +147,7 @@ class Canvas(app.Canvas):
         # Draw
         gloo.clear()
         self.program.draw('points')
+        self.eye_program.draw('points')
 
         # Build new starts if the first block is fully behind us
         if factor < 0:
@@ -150,6 +170,30 @@ class Canvas(app.Canvas):
 
         self.update()
 
+    def update_camera(self, y_pred):
+        x, y = y_pred[0, 0], y_pred[0, 1]
+        x /= 1563
+        y /= 1093
+        x *= 800
+        y *= 600
+        print(x, y)
+
+        #self.eye_program['a_position'] = (x/800, y/800)
+        self.x_offset, self.y_offset = x - self.last_x, - (y - self.last_y)
+        self.last_x, self.last_y = x, y
+        self.x_offset *= self.sensitivity
+        self.y_offset *= self.sensitivity
+
+        self.yaw, self.pitch = self.yaw - self.x_offset, self.pitch + self.y_offset
+
+        self.rot_y(self.yaw * np.pi / 180)
+        self.rot_x(self.pitch * np.pi / 180)
+
+        self.view = np.dot(self.rot_mat_y, self.rot_mat_x)
+        # print(self.view)
+        self.program['u_view'] = self.view
+
+        self.update()
 
     # Camera rotation
     def on_mouse_move(self, event):
