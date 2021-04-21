@@ -2,14 +2,12 @@
 """
 
 import time
-
 import numpy as np
-
 from vispy import gloo
 from vispy import app
 from vispy.util.transforms import perspective
 
-
+# Vertex shader for the stars
 vertex = """
 #version 120
 uniform mat4 u_model;
@@ -35,6 +33,7 @@ void main (void) {
 }
 """
 
+# Fragment shader for the stars
 fragment = """
 #version 120
 varying float v_pointsize;
@@ -48,23 +47,25 @@ void main()
 }
 """
 
+# vertex shader for the predicted eye gaze
 eye_vertex = """
 attribute vec2 a_position ; 
-void main {
-vec2 pos = a_position ;
-gl_PointSize = 1000.0 ;
-gl_Position = (pos, 0, 0) ;
+void main() {
+    vec2 pos = a_position ;
+    gl_Position = vec4(a_position, 0, 1.0) ;
+    gl_PointSize = 10.0 ;
 }
 """
 
+# Fragment shader for the predicted eye_gaze
 eye_fragment = """
-void main {
-gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0) ;
+void main() {
+    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0) ;
 }
 """
 
 N = 10000  # Number of stars
-SIZE = 100
+SIZE = 10
 SPEED = 1.0  # time in seconds to go through one block
 NBLOCKS = 10
 
@@ -75,6 +76,10 @@ class Canvas(app.Canvas):
         app.Canvas.__init__(self, title='Spacy', keys='interactive',
                             size=(800, 600))
 
+        # Init
+        self.width, self.height = 800, 600
+
+        # Load the shader programs into the GPU
         self.program = gloo.Program(vertex, fragment)
         self.eye_program = gloo.Program(eye_vertex, eye_fragment)
 
@@ -82,7 +87,7 @@ class Canvas(app.Canvas):
         self.model = 1*np.eye(4, dtype=np.float32)
         self.translate = 1
 
-        # Rotation Camera
+        #  Camera parameters
         self.sensitivity = 0.1
         self.last_x, self.last_y = 0, 0
         self.x_offset, self.y_offset = 0, 0
@@ -105,8 +110,7 @@ class Canvas(app.Canvas):
         # Set attributes
         self.program['a_position'] = np.zeros((N, 3), np.float32)
         self.program['a_offset'] = np.zeros((N, 1), np.float32)
-
-        self.eye_program['a_position'] = (0, 0)
+        self.eye_program['a_position'] = np.zeros((1, 2), np.float32)
 
         # Init
         self._timeout = 0
@@ -128,15 +132,18 @@ class Canvas(app.Canvas):
             else:
                 self.timer.start()
 
+
     def on_resize(self, event):
         self.activate_zoom()
 
     def activate_zoom(self):
-        width, height = self.size
+        self.width, self.height = self.size
         gloo.set_viewport(0, 0, *self.physical_size)
         far = SIZE*(NBLOCKS-2)
-        self.projection = perspective(25.0, width / float(height), 1.0, far)
+        self.projection = perspective(25.0, self.width / float(self.height), 1.0, far)
         self.program['u_projection'] = self.projection
+
+        self.update()
 
     def on_draw(self, event):
         # Set time offset. Factor runs from 1 to 0
@@ -156,7 +163,13 @@ class Canvas(app.Canvas):
     def on_close(self, event):
         self.timer.stop()
 
+    def on_mouse_press(self, event):
+        self.on_mouse_wheel(event)
+
     def on_mouse_wheel(self, event):
+        """
+        Reset the camera position when mouse wheel is triggered
+        """
         self.translate -= event.delta[1]
         self.program['u_view'] = self.view
 
@@ -171,31 +184,38 @@ class Canvas(app.Canvas):
         self.update()
 
     def update_camera(self, y_pred):
+        """
+        Receive the eye gaze prediction and update the camera orientation
+        """
         x, y = y_pred[0, 0], y_pred[0, 1]
-        x /= 1563
-        y /= 1093
-        x *= 800
-        y *= 600
-        print(x, y)
+        x_eye, y_eye = x * 2 - 1, y * 2 - 1
+        #x /= 1563
+        #y /= 1093
+        x *= self.width
+        y *= self.height
 
-        #self.eye_program['a_position'] = (x/800, y/800)
+        #print(x_eye, y_eye)
+
         self.x_offset, self.y_offset = x - self.last_x, - (y - self.last_y)
         self.last_x, self.last_y = x, y
         self.x_offset *= self.sensitivity
         self.y_offset *= self.sensitivity
 
         self.yaw, self.pitch = self.yaw - self.x_offset, self.pitch + self.y_offset
+        #print(self.yaw, self.pitch)
 
+        # Update the rotation and the View matrices
         self.rot_y(self.yaw * np.pi / 180)
         self.rot_x(self.pitch * np.pi / 180)
-
         self.view = np.dot(self.rot_mat_y, self.rot_mat_x)
-        # print(self.view)
         self.program['u_view'] = self.view
+
+        eye = np.array([[x_eye, y_eye]], np.float32)
+        self.eye_program['a_position'] = eye
 
         self.update()
 
-    # Camera rotation
+    # Camera rotation with mouse movements
     def on_mouse_move(self, event):
         #self.view = 1 * np.eye(4, dtype=np.float32)
         #self.model = 1 * np.eye(4, dtype=np.float32)
@@ -215,19 +235,17 @@ class Canvas(app.Canvas):
         #self.program['u_view'] = self.view
 
         x, y = event.pos
-        print(x, y)
+        #print(x, y)
         self.x_offset, self.y_offset = x - self.last_x, - (y - self.last_y)
         self.last_x, self.last_y = x, y
         self.x_offset *= self.sensitivity
         self.y_offset *= self.sensitivity
 
         self.yaw, self.pitch = self.yaw - self.x_offset, self.pitch + self.y_offset
-
         self.rot_y(self.yaw * np.pi / 180)
         self.rot_x(self.pitch * np.pi / 180)
 
         self.view = np.dot(self.rot_mat_y, self.rot_mat_x)
-        #print(self.view)
         self.program['u_view'] = self.view
 
         self.update()
@@ -270,7 +288,6 @@ class Canvas(app.Canvas):
     def rot_x(self, theta):
         self.rot_mat_x[1][1] = self.rot_mat_x[2][2] = np.cos(theta)
         self.rot_mat_x[2][1], self.rot_mat_x[1][2] = np.sin(theta), - np.sin(theta)
-
 
 
 if __name__ == '__main__':
