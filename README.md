@@ -11,17 +11,16 @@ A Brain-Computer Interface pipeline for video game camera control with EEG signa
 - pylsl (install with pip, conda install not available)
 - pickle
 
-### How to run ###
-Specify the CSV file path for the desired subject on neuropype
-node " import CSV "
+How to run
+==
 Setup the python environment
-Run the gui_launch.py file 
+Specify the CSV file path for the desired subject on neuropype node " import CSV " <br />
+Run the gui_launch.py file  <br />
 ==> Launch the "video game" GUI, the camera can be controlled with 
 the mouse pointer position. Use mouse click or mouse wheel to reset the
 camera to the initial position 
 
-Run the neuropype pipeline
-==
+### Run the neuropype pipeline ###
 ==> EEG and ground truth eye gaze data will be streamed to the python program
 The GUI will display a red square for the prediction, and a green one for the ground truth.
 Camera position will be automatically change according to the predicted eye gaze location.
