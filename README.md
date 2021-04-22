@@ -2,7 +2,7 @@
 A Brain-Computer Interface pipeline for video game camera control with EEG signals
 
 ### Python environment ##
-python 3.6
+python 3.6 //
 numpy 1.19.2
 pyqt 5.9.2
 qt 5.9.7 (normally installed with pyqt)
