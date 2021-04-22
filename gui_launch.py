@@ -17,14 +17,16 @@ import numpy as np
 
 '''
 The two following classes handle the multithreading.
-The GUI and data reception run on two separate threads. 
+The GUI and data reception/processing run on two separate threads. 
 '''
+
 
 class WorkerSignals(QObject):
     '''
     Inherits from QObject to handle signals to update the Qt GUI.
     '''
     data = pyqtSignal(tuple)
+
 
 class Worker(QRunnable):
     '''
@@ -41,24 +43,27 @@ class Worker(QRunnable):
         self.signals = WorkerSignals()
 
         # Add the callback to our kwargs
-        #self.kwargs['progress_callback'] = self.signals.progress
+        # self.kwargs['progress_callback'] = self.signals.progress
 
     @pyqtSlot()
     def run(self):
         '''
-        Receive the EEG data from Neuropype and transmit them
+        Receive the EEG and ground truth eye gaze
+        data from Neuropype and send them
         to the QT Gui
         '''
-        print('thread 1')
 
-        streams = resolve_stream('type', 'EEG')
-        inlet = StreamInlet(streams[0])
+        print('Second thread start ')
+        eeg_streams = resolve_stream('type', 'EEG')
+        inlet = StreamInlet(eeg_streams[0])
+        eye_stream = resolve_stream('type', 'Gaze')
+        eye_inlet = StreamInlet(eye_stream[0])
         while True:
-            #print(inlet.pull_sample())
-            y = inlet.pull_sample()
-            #print(len(y[0]))
-            self.signals.data.emit(y)
-
+            # print(inlet.pull_sample())
+            y_eeg = inlet.pull_sample()
+            y_eye = eye_inlet.pull_sample()
+            data_to_send = (y_eeg, y_eye)
+            self.signals.data.emit(data_to_send)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -66,39 +71,52 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
+        # Load and bound the video game canvas
+        # To the QT GUI
         self.setWindowTitle("Project GUI")
         self._canvas = Canvas()
-
-        filename = 'lr_eeg_subject_1.sav'
-        self.loaded_model = pickle.load(open(filename, 'rb'))
         self.setCentralWidget(self._canvas.native)
 
-        self.threadpool = QThreadPool()
-        self.test_thread()
+        # Load the regression model for prediction
+        filename = 'lr_eeg_subject_1.sav'
+        self.loaded_model = pickle.load(open(filename, 'rb'))
 
-        self.received_data = 0
+        # Start the data thread
+        self.threadpool = QThreadPool()
+        self.data_thread()
+
+        # Params
+        self.nb_buffer = 0
+        self.time_eeg = 0
+        self.time_eye = 0
+
+        # Control the timestamps to send the eye gaze
+        # ground truths and prediction to the video game
+        self.wait = 200
 
     def test_data(self, y):
-        data = y[0]
-        self.received_data += 1
-        data_array = np.array(data).reshape((1, 61))
-        #print(data_array.shape)
-        y_pred = self.loaded_model.predict(data_array)
-        print(self.received_data)
+        eeg, eye = y[0], y[1]
+        eeg_data, self.time_eeg = eeg[0], eeg[1]
+        eye_data, self.time_eye = eye[0], eye[1]
 
-        # print(data)
-        # print(data_array.shape)
-        # print(y_pred)
+        # print to see if timestamps are synchronized (they are)
+        # print(self.time_eeg, self.time_eeg)
+        # print(self.nb_buffer)
 
-        if self.received_data % 200 == 0:
-            self._canvas.update_camera(y_pred)
+        self.nb_buffer += 1
+        eeg_array = np.array(eeg_data).reshape((1, 61))
+        y_pred = self.loaded_model.predict(eeg_array)
 
-    def test_thread(self):
+        #print(y_pred)
+        if self.nb_buffer % self.wait == 0:
+            self._canvas.get_pred(y_pred)
+            self._canvas.display_gt(eye_data)
+
+    def data_thread(self):
+        # Start second data thread
         worker = Worker()
         worker.signals.data.connect(self.test_data)
-
         self.threadpool.start(worker)
-
 
 
 app = QtWidgets.QApplication(sys.argv)
