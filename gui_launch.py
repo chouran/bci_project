@@ -78,7 +78,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self._canvas.native)
 
         # Load the regression model for prediction
-        filename = 'lr_eeg_subject_1.sav'
+        filename = 'models/lr_eeg_subject_1.sav'
         self.loaded_model = pickle.load(open(filename, 'rb'))
 
         # Start the data thread
