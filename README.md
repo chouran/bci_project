@@ -1,6 +1,14 @@
 # bci_project
 A Brain-Computer Interface pipeline for video game camera control with EEG signals
 
+
+### Demo ###
+
+
+https://github.com/chouran/bci_project/assets/46513924/2b3ee0e4-3923-4771-a357-d0447b7cda20
+
+
+
 ### Python environment ##
 - python 3.6 //
 - numpy 1.19.2
