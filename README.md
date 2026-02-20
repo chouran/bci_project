@@ -10,7 +10,7 @@ https://github.com/chouran/bci_project/assets/46513924/2b3ee0e4-3923-4771-a357-d
 
 
 ### Python environment ##
-- python 3.6 //
+- python 3.6 
 - numpy 1.19.2
 - pyqt 5.9.2
 - qt 5.9.7 (normally installed with pyqt)
@@ -30,18 +30,18 @@ camera to the initial position
 
 ### Run the neuropype pipeline ###
 ==> EEG and ground truth eye gaze data will be streamed to the python program <br />
-The GUI will display a red square for the prediction, and a green one for the ground truth. <br />
-Camera position will be automatically change according to the predicted eye gaze location. <br />
+The GUI will display a red square for the predictions, and a green one for the ground truths. <br />
+Camera position will be automatically changed according to the predicted eye gaze location. <br />
 Camera can still be moved by the mouse. <br />
-When prediction starts being display, you should reset the camera with a mouse click first. <br />
+When prediction starts being displayed, you should reset the camera with a mouse click first, as there is a small latency at the start of Neuropype. <br />
 
 ### Code description ###
-The ML model trained on the jupyter notebook were saved and are loaded on the gui_launch.py file. <br />
+The ML model weights were saved and are loaded on the gui_launch.py file. <br />
 The canvas_video_game.py file contains the video game canvas built with OpenGL. <br />
 The gui_launch.py file contains the QT main GUI, and is used to handle multithreading : 
 one for data reception and one for the GUI.
-Once the streaming data are received, they are sent to the video game canvas that update 
-the GUI camera and the predicted and ground truth eye-gazed positions.
+Once the streamed data are received, they are sent to the video game canvas that updates 
+the GUI camera, the predicted and ground truth eye-gazed positions.
 
 The eye gaze positions are sent to the video game GUI approximately every 2 seconds, <br />
 to smooth the visualization.
